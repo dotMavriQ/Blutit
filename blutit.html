@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sweden Map with Points</title>
+
+    <!-- Leaflet CSS and JS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- Marker Cluster CSS and JS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"
+    />
+    <link rel="icon" href="blutit.svg" type="image/svg+xml" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+
+    <!-- CodeMirror CSS and JS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.59.4/codemirror.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.59.4/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.59.4/mode/javascript/javascript.min.js"></script>
+
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        background-color: #2e3440;
+        color: #eceff4;
+        margin: 0;
+        padding: 0;
+      }
+
+      #mapid {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+      }
+
+      img {
+        display: block;
+        margin: 10px auto;
+      }
+
+      .CodeMirror {
+        width: 80%;
+        height: 150px;
+        margin: 10px 10%;
+        border: none;
+        border-radius: 5px;
+        background-color: #3b4252;
+      }
+
+      button {
+        display: block;
+        background-color: #4c566a;
+        color: #eceff4;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 15px;
+        margin: 10px auto;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #5e6978;
+      }
+      /* Nord CodeMirror Theme */
+      .CodeMirror {
+        background: #2e3440;
+        color: #d8dee9;
+      }
+      .CodeMirror-gutters {
+        background: #2e3440;
+        border-right: 0;
+      }
+      .CodeMirror-linenumber {
+        color: #4c566a;
+      }
+      .CodeMirror-cursor {
+        border-left: 1px solid #d8dee9;
+      }
+      .CodeMirror-selected {
+        background: #3b4252;
+      }
+      .CodeMirror-line::selection,
+      .CodeMirror-line > span::selection,
+      .CodeMirror-line > span > span::selection {
+        background: #3b4252;
+      }
+      .CodeMirror-line::-moz-selection,
+      .CodeMirror-line > span::-moz-selection,
+      .CodeMirror-line > span > span::-moz-selection {
+        background: #3b4252;
+      }
+      .CodeMirror-matchingbracket {
+        text-decoration: underline;
+        color: #d8dee9 !important;
+      }
+      .cm-comment {
+        color: #4c566a;
+      }
+      .cm-keyword,
+      .cm-storage-type {
+        color: #81a1c1;
+      }
+      .cm-variable,
+      .cm-attribute {
+        color: #d8dee9;
+      }
+      .cm-string,
+      .cm-string-2 {
+        color: #a3be8c;
+      }
+      .cm-number {
+        color: #b48ead;
+      }
+      .input-container {
+        position: relative;
+        top: 30px;
+      }
+
+      .overlay-image {
+        position: absolute;
+        top: -70px;
+        left: 0;
+        right: 2050px;
+        width: 100px;
+        height: auto;
+        z-index: 2;
+        pointer-events: none; /* Disables all pointer events on the element */
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="input-container">
+      <!-- Displaying the Sweden Flag -->
+      <img class="overlay-image" src="blutit.svg" alt="Blutit" />
+
+      <!-- Free Text Form (now a div for CodeMirror) -->
+      <div id="jsonInput"></div>
+      <button onclick="addMarkers()">Add Markers</button>
+    </div>
+
+    <!-- Map Display -->
+    <div id="mapid"></div>
+
+    <script>
+      // Initialize CodeMirror for JSON input
+      var editor = CodeMirror(document.getElementById("jsonInput"), {
+        mode: "application/json",
+        lineNumbers: true,
+        theme: "nord", // Set to 'nord' for our custom theme
+      });
+
+      // Initialize the map centered on Sweden
+      var mymap = L.map("mapid").setView([60.128161, 18.643501], 6);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+      }).addTo(mymap);
+
+      // Initialize the marker cluster group
+      var markers = L.markerClusterGroup();
+
+      function addMarkers() {
+        // Parse JSON from CodeMirror instance
+        let jsonData;
+        try {
+          jsonData = JSON.parse(editor.getValue());
+        } catch (error) {
+          alert("Invalid JSON data");
+          return;
+        }
+
+        // Add each entry to the marker cluster group
+        for (let entry of jsonData) {
+          if (entry.lat && entry.long) {
+            let popupContent = `
+                        <strong>Place:</strong> ${entry.place}<br>
+                        <strong>Address:</strong> ${entry.address}, ${
+              entry.zip
+            }, ${entry.city}, ${entry.country}<br>
+                        <strong>Hours:</strong> ${entry.hours}<br>
+                        <strong>Services:</strong> ${entry.services.join(
+                          ", "
+                        )}<br>
+                        <strong>Fuels:</strong> ${entry.fuels.join(", ")}
+                    `;
+
+            var marker = L.marker([entry.lat, entry.long]).bindPopup(
+              popupContent
+            );
+            markers.addLayer(marker);
+          }
+        }
+
+        mymap.addLayer(markers);
+      }
+    </script>
+  </body>
+</html>
